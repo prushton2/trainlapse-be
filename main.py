@@ -68,26 +68,33 @@ async def getVehicles():
                 f.write(json.dumps(obj))
 
             for f in os.listdir("./out"):
-                if int(f.split(".")[0]) < now - 60:
+                if int(f.split(".")[0]) < now - 600:
                     os.remove(os.path.join("./out", f))
 
         await asyncio.sleep(1)
 
 class MyServer(BaseHTTPRequestHandler):
     def do_GET(self):
-        # if self.path == "/get":
         print(self.path.split("/"))
         if(self.path.split("/")[1].startswith("get")):
             query = self.path.split("?")[1]
             query = query.split("&")
             query = {i.split("=")[0]: i.split("=")[1] for i in query}
             print(query)
-        
 
+            self.wfile.write(bytes("{", "utf-8"))
+
+            for f in os.listdir("./out"):
+                if time.time() - int(f.split(".")[0]) <= int(query["time"]):
+                    with open(os.path.join("./out", f), 'r') as file:
+                        # print(file.read())
+                        self.wfile.write(bytes(f"\"{int(time.time())}\": {file.read()}", "utf-8"))
+
+            self.wfile.write(bytes("}", "utf-8"))
 
         self.send_response(200)
-        self.send_header("Content-type", "text/html")
-        self.end_headers()
+        self.send_header("Content-type", "text/json")
+        # self.end_headers()
         # self.wfile.write(bytes("<html><head><title>https://pythonbasics.org</title></head>", "utf-8"))
         # self.wfile.write(bytes("<p>Request: %s</p>" % self.path, "utf-8"))
         # self.wfile.write(bytes("<body>", "utf-8"))
