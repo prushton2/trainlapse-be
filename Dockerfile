@@ -1,8 +1,14 @@
-FROM python:3.12
-WORKDIR /usr/local/app
+FROM python:3
+# RUN apt-get update && apt-get install -y
 
-COPY main.py .
-COPY out .
+WORKDIR /app
+
+# RUN pip install --upgrade pip
 RUN pip install requests
 
-CMD ["python", "main.py"]
+COPY . .
+# RUN mkdir out
+
+EXPOSE 8080
+
+CMD ["python", "./main.py"]

@@ -5,9 +5,9 @@ import threading
 import os
 import sys
 import asyncio
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler, HTTPServer
 
-hostName = "localhost"
+hostName = "0.0.0.0"
 serverPort = 8080
 
 
@@ -49,14 +49,14 @@ def cleanVehicle(vehicle):
 
 
 async def getVehicles():
-    print("getVehicles")
+    print("Get Vehicles Thread started")
     while(1):
         if(int(time.time())%60 == 0):
             now = int(time.time())
             res = requests.get("https://api-v3.mbta.com/vehicles?filter[route_type]=2&include=trip")
 
             if(res.json().get("included") == None):
-                # print(f"Failed to get data: {res.status_code} - {res.text}")
+                print(f"    Failed to get data: {res.status_code} - {res.text}")
                 continue
 
             inc = {}
@@ -74,7 +74,7 @@ async def getVehicles():
             for f in os.listdir("./out"):
                 if int(f.split(".")[0]) < now - 86400:
                     os.remove(os.path.join("./out", f))
-
+            # print("    Saved data to file.")
         await asyncio.sleep(1)
 
 class MyServer(BaseHTTPRequestHandler):
@@ -107,21 +107,14 @@ class MyServer(BaseHTTPRequestHandler):
             self.wfile.write(bytes(json.dumps(jsonobj), "utf-8"))
 
 
-if __name__ == "__main__":        
-    webServer = HTTPServer((hostName, serverPort), MyServer)
+if __name__ == "__main__":
+    print("Starting server...")
+    webServer = ThreadingHTTPServer((hostName, serverPort), MyServer)
     print("Server started http://%s:%s" % (hostName, serverPort))
 
-    t = threading.Thread(target=lambda: asyncio.run(getVehicles()))
-    t.start()
+    t1 = threading.Thread(target=lambda: asyncio.run(getVehicles()))
 
-    try:
-        webServer.serve_forever()
-    except KeyboardInterrupt:
-        pass
-    
-    print("Server stopped.")
+    t1.start()
 
-    webServer.server_close()
-    print("Server stopped.")
-
+    webServer.serve_forever()
 
