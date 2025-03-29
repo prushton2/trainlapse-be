@@ -51,9 +51,13 @@ def cleanVehicle(vehicle):
 async def getVehicles():
     print("getVehicles")
     while(1):
-        if(int(time.time())%10 == 0):
+        if(int(time.time())%60 == 0):
             now = int(time.time())
             res = requests.get("https://api-v3.mbta.com/vehicles?filter[route_type]=2&include=trip")
+
+            if(res.json().get("included") == None):
+                # print(f"Failed to get data: {res.status_code} - {res.text}")
+                continue
 
             inc = {}
             obj = []
@@ -68,29 +72,40 @@ async def getVehicles():
                 f.write(json.dumps(obj))
 
             for f in os.listdir("./out"):
-                if int(f.split(".")[0]) < now - 600:
+                if int(f.split(".")[0]) < now - 86400:
                     os.remove(os.path.join("./out", f))
 
         await asyncio.sleep(1)
 
 class MyServer(BaseHTTPRequestHandler):
     def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "application/json")
+        self.end_headers()
+
         if(self.path.split("/")[1].startswith("get")):
             query = self.path.split("?")[1]
             query = query.split("&")
             query = {i.split("=")[0]: i.split("=")[1] for i in query}
 
-            self.wfile.write(bytes("{", "utf-8"))
+            jsonobj = {
+                "size": 0,
+                "elements": []
+            }
 
-            for f in os.listdir("./out"):
-                if time.time() - int(f.split(".")[0]) <= int(query["time"]):
+            for f in sorted(os.listdir("./out")):
+                if int(time.time()) - int(f.split(".")[0]) <= int(query["time"]):
                     with open(os.path.join("./out", f), 'r') as file:
-                        self.wfile.write(bytes(f"\"{int(time.time())}\": {file.read()}", "utf-8"))
+                        jsonobj["size"] += 1
+                        jsonobj["elements"].append(
+                            {
+                                "data": json.loads(file.read()),
+                                "timestamp": int(f.split(".")[0])
+                            }
+                        )
 
-            self.wfile.write(bytes("}", "utf-8"))
+            self.wfile.write(bytes(json.dumps(jsonobj), "utf-8"))
 
-        self.send_response(200)
-        self.send_header("Content-type", "text/json")
 
 if __name__ == "__main__":        
     webServer = HTTPServer((hostName, serverPort), MyServer)
