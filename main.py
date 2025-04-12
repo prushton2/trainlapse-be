@@ -9,6 +9,7 @@ from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler, HTTPServer
 
 hostName = "0.0.0.0"
 serverPort = 8080
+fetchInterval = 60
 
 
 def extractTripInfo(trip):
@@ -47,20 +48,29 @@ def cleanVehicle(vehicle):
 
     return vehicle
 
+def updateData(now, object):
+    with open(f"./out/{now}.json", 'w') as f:
+        f.write(json.dumps(object))
+
+    for f in os.listdir("./out"):
+        if int(f.split(".")[0]) < now - 86400:
+            os.remove(os.path.join("./out", f))
 
 async def getVehicles():
     print("Get Vehicles Thread started")
     while(1):
-        if(int(time.time())%60 == 0):
+        if(int(time.time())%fetchInterval == 0):
             now = int(time.time())
             res = requests.get("https://api-v3.mbta.com/vehicles?filter[route_type]=2&include=trip")
 
             if(res.json().get("included") == None):
                 print(f"    Failed to get data: {res.status_code} - {res.text}")
+                updateData(now, {})
                 continue
 
             inc = {}
             obj = []
+
             for i in res.json()["included"]:
                 inc[i["id"]] = extractTripInfo(i)
 
@@ -68,20 +78,12 @@ async def getVehicles():
                 obj.append(bindTripInfo(i, inc[i["relationships"]["trip"]["data"]["id"]]))
                 obj[-1] = cleanVehicle(obj[-1])
 
-            with open(f"./out/{now}.json", 'w') as f:
-                f.write(json.dumps(obj))
-
-            for f in os.listdir("./out"):
-                if int(f.split(".")[0]) < now - 86400:
-                    os.remove(os.path.join("./out", f))
-            # print("    Saved data to file.")
+            updateData(now, obj)
+            
         await asyncio.sleep(1)
 
 class MyServer(BaseHTTPRequestHandler):
     def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-type", "application/json")
-        self.end_headers()
 
         if(self.path.split("/")[1].startswith("get")):
             query = self.path.split("?")[1]
@@ -104,7 +106,25 @@ class MyServer(BaseHTTPRequestHandler):
                             }
                         )
 
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
             self.wfile.write(bytes(json.dumps(jsonobj), "utf-8"))
+        
+        elif(self.path == "/healthcheck"):
+            now = int(time.time())
+            health_status = {"status": "ok"}
+            response_status = 200
+
+            if not os.path.exists(f"./out/{(now - now%fetchInterval)-fetchInterval}.json"):
+                health_status["status"] = "err"
+                health_status["file_err"] = f"file was not written (./out/{(now - now%fetchInterval)-fetchInterval}.json)"
+                response_status = max(500, response_status)
+
+            self.send_response(response_status)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            self.wfile.write(bytes(json.dumps(health_status), "utf-8"))
 
 
 if __name__ == "__main__":
