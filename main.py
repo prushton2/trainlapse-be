@@ -65,7 +65,7 @@ async def getVehicles():
 
             if(res.json().get("included") == None):
                 print(f"    Failed to get data: {res.status_code} - {res.text}")
-                updateData(now, {})
+                updateData(now, [])
                 continue
 
             inc = {}
