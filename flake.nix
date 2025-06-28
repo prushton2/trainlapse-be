@@ -10,7 +10,7 @@
       pkgs = nixpkgs.legacyPackages.x86_64-linux;
     in
     {
-      packages.x86_64-linux.hide-and-seek = pkgs.buildGoModule {
+      packages.x86_64-linux.default = pkgs.buildGoModule {
         pname = "trainlapse";
         version = "0.1.0";
         src = ./.;

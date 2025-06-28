@@ -176,7 +176,6 @@ func getCurrentState(now int64) {
 	}
 
 	defer resp.Body.Close()
-	fmt.Println("Received response with status:", resp.Status)
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println("Error reading response body:", err)
