@@ -97,6 +97,37 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	io.Writer.Write(w, responseString)
 }
 
+func healthcheck(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Request-Method", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "*")
+
+	twominsago := time.Now().Unix() - 120
+	twominsago = twominsago - twominsago%60
+
+	file, err := os.OpenFile(fmt.Sprintf("./data/%d.json", twominsago), os.O_RDONLY, 0644)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("File ./data/%d.json likely doesnt exist, failing healthcheck", twominsago), http.StatusInternalServerError)
+		return
+	}
+
+	var unmarshaled StoredData
+
+	body, err := io.ReadAll(file)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error reading file %s", file.Name()), http.StatusInternalServerError)
+		return
+	}
+
+	err = json.Unmarshal(body, &unmarshaled)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Data inside file %s is likely corrupt", file.Name()), http.StatusInternalServerError)
+		return
+	}
+
+	io.WriteString(w, "Healthcheck passed")
+}
+
 func getTrainUpdates() {
 	for {
 		time.Sleep(1 * time.Second)
@@ -223,6 +254,7 @@ func getCurrentState(now int64) {
 
 func main() {
 	http.HandleFunc("/get", handler)
+	http.HandleFunc("/healthcheck", healthcheck)
 
 	go getTrainUpdates()
 
