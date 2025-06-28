@@ -102,7 +102,9 @@ func healthcheck(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Request-Method", "*")
 	w.Header().Set("Access-Control-Allow-Headers", "*")
 
-	twominsago := time.Now().Unix() - 120
+	// move back a minute
+	twominsago := time.Now().Unix() - 60
+	// this rounds it back another minute effectively
 	twominsago = twominsago - twominsago%60
 
 	file, err := os.OpenFile(fmt.Sprintf("./data/%d.json", twominsago), os.O_RDONLY, 0644)
